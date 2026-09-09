@@ -70,14 +70,29 @@ export function addTransaction(tx: Omit<Transaction, "id" | "timestamp">): Trans
 }
 
 export function clearTransactions(): void {
+  if (typeof window === "undefined") return
   localStorage.removeItem(KEY)
   window.dispatchEvent(new CustomEvent(EV_CLEAR))
 }
 
+export interface LeaderEntry {
+  id?: string
+  name: string
+  total: number
+  paymentMethod?: PaymentMethod
+}
+
 export function getLeaderboard(txs: Transaction[]): LeaderEntry[] {
-  const map = new Map<string, number>()
-  for (const tx of txs) map.set(tx.name, (map.get(tx.name) ?? 0) + tx.amount)
-  return Array.from(map.entries()).map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total)
+  // Peringkat donasi terbesar per transaksi agar setiap transaksi memiliki baris ranking sendiri
+  return txs
+    .map(tx => ({
+      id: tx.id,
+      name: tx.name || "Sobat Detronics",
+      total: tx.amount,
+      paymentMethod: tx.paymentMethod
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10)
 }
 
 export function formatRp(n: number): string {
@@ -202,14 +217,9 @@ export function parseRawNotification(text: string): {
   // Clean name from ref codes or junk
   name = name.replace(/^ref:.*$/i, "").replace(/ref:\s*\d+/i, "").trim()
 
-  // 4. If name is still empty, try extracting Ref code to make unique "Pelanggan #xxxx"
+  // 4. If name is still empty, default to "Sobat Detronics"
   if (!name || name.length < 2) {
-    const refMatch = cleanText.match(/ref(?:\s*id|\s*no|erence)?\s*[:#.]?\s*([A-Za-z0-9]+)/i)
-    if (refMatch && refMatch[1] && refMatch[1].length >= 4) {
-      name = `Pelanggan #${refMatch[1].slice(-4)}`
-    } else {
-      name = "Pelanggan"
-    }
+    name = "Sobat Detronics"
   }
 
   return {

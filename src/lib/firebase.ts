@@ -49,10 +49,9 @@ export function normalizeFirebaseTx(id: string, data: FirebaseRawPayload): Trans
     if (!data.paymentMethod && parsed.paymentMethod) paymentMethod = parsed.paymentMethod
   }
 
-  // If name is still generic, assign unique suffix from key/id so customers don't stack in the leaderboard
-  if (!name || name === "Pelanggan" || name === "Pelanggan QRIS") {
-    const shortId = id ? id.replace(/[^a-zA-Z0-9]/g, "").slice(-4) : String(Date.now()).slice(-4)
-    name = `Pelanggan #${shortId.toUpperCase()}`
+  // If name is still generic or missing, default to "Sobat Detronics"
+  if (!name || name === "Pelanggan" || name.startsWith("Pelanggan #") || name === "Pelanggan QRIS") {
+    name = "Sobat Detronics"
   }
 
   // Normalize timestamp: MacroDroid sends seconds (10 digits, e.g. 1788937504) or milliseconds (13 digits)

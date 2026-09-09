@@ -137,7 +137,8 @@ export function speak(text: string, volume = 1): void {
 
 export function announcePayment(name: string, amount: number, message: string, paymentMethod: string, volume = 1): void {
   const spelled = terbilang(amount)
-  const text = `Diterima ${spelled} rupiah melalui ${paymentMethod} dari ${name}. Terima kasih sudah support Detronics I D!${message ? " Pesan: " + message : ""}`
+  const callerName = name && name !== "Pelanggan" && !name.startsWith("Pelanggan #") ? name : "Sobat Detronics"
+  const text = `Diterima ${spelled} rupiah melalui ${paymentMethod} dari ${callerName}. Terima kasih sudah support Detronics I D!${message ? " Pesan: " + message : ""}`
 
   // Play chime first, then voice
   playChime(volume)

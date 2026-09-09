@@ -30,13 +30,15 @@ function LeaderboardCard({ entries }: { entries: LeaderEntry[] }) {
           <p className="text-center text-slate-500 text-sm py-8">Belum ada donasi</p>
         )}
         {entries.slice(0, 10).map((e, i) => (
-          <div key={e.name} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
+          <div key={e.id || `${e.name}-${i}`} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
             <span className={`text-sm font-black w-8 text-center ${RANK_CLASS[i] ?? "text-slate-400"}`}>
               {i < 3 ? RANK_LABEL[i] : `${i + 1}`}
             </span>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm truncate">{e.name}</p>
-              <p className="text-xs text-slate-400">{formatRp(e.total)}</p>
+              <p className="text-xs text-slate-400">
+                {formatRp(e.total)} {e.paymentMethod ? `· ${e.paymentMethod}` : ""}
+              </p>
             </div>
             {i === 0 && <Zap size={13} className="text-yellow-400 shrink-0" />}
           </div>
