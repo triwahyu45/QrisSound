@@ -1,4 +1,5 @@
 "use client"
+import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
 import { Send, Zap, Trash2, Play, Pause, Volume2, VolumeX, Download, RotateCcw } from "lucide-react"
 import { addTransaction, clearTransactions, getTransactions, formatRp, Transaction, terbilang, PAYMENT_METHODS, PaymentMethod } from "@/lib/store"
@@ -110,8 +111,8 @@ export default function AdminPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <a href="/" target="_blank" className="text-xs px-3 py-2 rounded-lg glass hover:border-cyan-400 transition-colors">🖥 Display</a>
-          <a href="/overlay" target="_blank" className="text-xs px-3 py-2 rounded-lg glass hover:border-cyan-400 transition-colors">🎬 OBS Overlay</a>
+          <Link href="/" target="_blank" className="text-xs px-3 py-2 rounded-lg glass hover:border-cyan-400 transition-colors">🖥 Display</Link>
+          <Link href="/overlay" target="_blank" className="text-xs px-3 py-2 rounded-lg glass hover:border-cyan-400 transition-colors">🎬 OBS Overlay</Link>
         </div>
       </div>
 

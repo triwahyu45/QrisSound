@@ -1,9 +1,12 @@
 "use client"
 import Image from "next/image"
+import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Crown, Zap, Wifi, Users, TrendingUp, Clock, CreditCard, CheckCircle2 } from "lucide-react"
 import { useTransactions } from "@/hooks/useTransactions"
 import { formatRp, timeAgo, LeaderEntry, Transaction } from "@/lib/store"
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ""
 
 const RANK_CLASS = ["rank-gold", "rank-silver", "rank-bronze"]
 const RANK_LABEL = ["#1", "#2", "#3"]
@@ -161,7 +164,7 @@ export default function MainDisplay() {
       <header className="glass rounded-2xl px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center shrink-0">
-            <Image src="/logo-detronics-id.png" alt="Detronics ID" width={40} height={40} className="object-contain w-full h-full" />
+            <Image src={`${basePath}/logo-detronics-id.png`} alt="Detronics ID" width={40} height={40} className="object-contain w-full h-full" />
           </div>
           <div>
             <h1 className="text-lg font-black tracking-wider neon-text">DETRONICS ID</h1>
@@ -182,9 +185,9 @@ export default function MainDisplay() {
             <span className="text-sm font-mono">{txs.length} Transaksi</span>
           </div>
           <span className="text-sm font-mono text-slate-300">{time}</span>
-          <a href="/admin" className="text-xs px-3 py-1.5 rounded-lg border border-white/20 hover:border-cyan-400 transition-colors text-slate-400 hover:text-white">
+          <Link href="/admin" className="text-xs px-3 py-1.5 rounded-lg border border-white/20 hover:border-cyan-400 transition-colors text-slate-400 hover:text-white">
             Panel Admin
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -201,7 +204,7 @@ export default function MainDisplay() {
             <div className="qris-scan-border relative inline-block">
               <div className="scan-line" />
               <div className="p-3 bg-white rounded-2xl shadow-2xl" style={{ boxShadow: "0 0 40px rgba(0,255,213,0.2)" }}>
-                <Image src="/qris-detronics.png" alt="QRIS Detronics ID" width={280} height={280} className="rounded-xl" priority />
+                <Image src={`${basePath}/qris-detronics.png`} alt="QRIS Detronics ID" width={280} height={280} className="rounded-xl" priority />
               </div>
             </div>
             <div className="mt-5 text-center space-y-1">
