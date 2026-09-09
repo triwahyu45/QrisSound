@@ -22,7 +22,7 @@ const PRESETS = [
   { label: "Rp 100K", amount: 100000 },
 ]
 
-const MOCK_NAMES = ["MekaSquad", "RoboEnthusiast", "ElektroFan", "Pak Budi", "Si Andi", "DroneLover", "CircuitGeek", "NanoBot99", "Kang Teguh", "Wahyu Jr"]
+const MOCK_NAMES = ["MekaSquad", "RoboEnthusiast", "ElektroFan", "Sobat Meka", "Si Andi", "DroneLover", "CircuitGeek", "NanoBot99", "Kang Teguh", "Wahyu Jr"]
 const MOCK_MESSAGES = [
   "Semangat terus mas!",
   "Mantap jiwa kontennya!",
@@ -51,7 +51,7 @@ export default function AdminPage() {
   const [fbStatus, setFbStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
   const [fbMessage, setFbMessage] = useState("")
   const [copiedUrl, setCopiedUrl] = useState(false)
-  const [rawNotifText, setRawNotifText] = useState("Pembayaran Rp 50.000 dari BUDI berhasil diterima")
+  const [rawNotifText, setRawNotifText] = useState("A payment of Rp10.000 has been received. Ref: 121464312661244375.")
 
   useEffect(() => {
     setTxs(getTransactions())
@@ -183,7 +183,7 @@ export default function AdminPage() {
                 <label className="text-xs text-slate-400 mb-1 block">Nama Pengirim *</label>
                 <input
                   value={name} onChange={e => setName(e.target.value)}
-                  placeholder="Contoh: Budi Santoso"
+                  placeholder="Contoh: Tri Wahyu / Nama Pelanggan"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
                 />
               </div>
@@ -362,7 +362,7 @@ export default function AdminPage() {
                 <div className="flex gap-2">
                   <input
                     value={rawNotifText} onChange={e => setRawNotifText(e.target.value)}
-                    placeholder="Contoh: Pembayaran Rp 25.000 dari BUDI berhasil"
+                    placeholder="Contoh: A payment of Rp25.000 has been received. Ref: ..."
                     className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
                   />
                   <button onClick={handleTestRawNotif}

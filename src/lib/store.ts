@@ -35,7 +35,10 @@ export function isTestTransaction(name: string, message?: string): boolean {
     s.includes("owner test") ||
     s.includes("testing") ||
     s.includes("simulasi") ||
-    s.includes("dummy")
+    s.includes("dummy") ||
+    s.includes("budi") ||
+    s.includes("pak budi") ||
+    s.includes("budi santoso")
   )
 }
 

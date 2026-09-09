@@ -5,7 +5,7 @@
 > **OBS Overlay:** https://triwahyu45.github.io/QrisSound/overlay  
 
 Display layar kasir real-time untuk **Detronics ID** (Store ID: `23598782`) — QR Code di kiri, statistik transaksi di kanan. Setiap pembayaran masuk memunculkan alert pop-up neon + suara TTS berbahasa Indonesia:  
-> *"Diterima lima puluh ribu rupiah melalui ShopeePay dari Budi. Terima kasih sudah support Detronics ID!"*
+> *"Diterima lima puluh ribu rupiah melalui ShopeePay dari Sobat Detronics. Terima kasih sudah support Detronics ID!"*
 
 ---
 
