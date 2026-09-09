@@ -70,6 +70,19 @@ export function useTransactions() {
       // Fetch history
       fetchFirebaseTransactions().then(cloudTxs => {
         if (cloudTxs.length > 0) {
+          // Check if latest transaction occurred recently (< 30 minutes)
+          const newest = cloudTxs[0]
+          const isRecent = (Date.now() - newest.timestamp) < 30 * 60 * 1000
+          const alertedKey = `detronics_alerted_${newest.id}`
+          const alreadyAlerted = typeof window !== "undefined" && sessionStorage.getItem(alertedKey)
+
+          if (isRecent && !alreadyAlerted) {
+            if (typeof window !== "undefined") sessionStorage.setItem(alertedKey, "1")
+            seenTxIds.current.add(newest.id)
+            setLatest(newest)
+            setShowAlert(true)
+          }
+
           cloudTxs.forEach(t => seenTxIds.current.add(t.id))
           mergeTransactions(cloudTxs)
         }
@@ -79,6 +92,8 @@ export function useTransactions() {
       cleanupFirebase = listenFirebaseRealtime((newTx: Transaction) => {
         if (!seenTxIds.current.has(newTx.id)) {
           seenTxIds.current.add(newTx.id)
+          const alertedKey = `detronics_alerted_${newTx.id}`
+          if (typeof window !== "undefined") sessionStorage.setItem(alertedKey, "1")
           setLatest(newTx)
           setShowAlert(true)
           mergeTransactions([newTx])

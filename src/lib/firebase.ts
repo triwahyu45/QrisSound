@@ -24,13 +24,19 @@ export function normalizeFirebaseTx(id: string, data: FirebaseRawPayload): Trans
     if (!data.paymentMethod && parsed.paymentMethod) paymentMethod = parsed.paymentMethod
   }
 
+  // Normalize timestamp: MacroDroid sends seconds (10 digits, e.g. 1788937504) or milliseconds (13 digits)
+  let ts = Number(data.timestamp || Date.now())
+  if (ts < 1e11) {
+    ts *= 1000
+  }
+
   return {
-    id: id || String(data.timestamp || Date.now()),
+    id: id || String(ts),
     name: name || "Pelanggan",
-    amount: amount || 10000,
+    amount: amount > 0 ? amount : 10000,
     message,
     paymentMethod,
-    timestamp: data.timestamp || Date.now()
+    timestamp: ts
   }
 }
 
@@ -61,11 +67,11 @@ export async function fetchFirebaseTransactions(): Promise<Transaction[]> {
   const url = getFirebaseUrl()
   if (!url) return []
   try {
-    const endpoint = `${url}/transactions.json?orderBy="$key"&limitToLast=50`
+    const endpoint = `${url}/transactions.json`
     const res = await fetch(endpoint)
     if (!res.ok) return []
     const data = await res.json()
-    if (!data) return []
+    if (!data || typeof data !== "object") return []
 
     const list: Transaction[] = []
     for (const [id, item] of Object.entries(data)) {
@@ -107,7 +113,20 @@ export function listenFirebaseRealtime(onNewTx: (tx: Transaction) => void): () =
   let es: EventSource | null = null
   let isInitial = true
   const seenIds = new Set<string>()
+  let pollTimer: any = null
 
+  // Helper to process new transactions
+  const handleIncoming = (id: string, rawData: any) => {
+    if (!seenIds.has(id)) {
+      seenIds.add(id)
+      if (!isInitial && rawData && typeof rawData === "object") {
+        const normalized = normalizeFirebaseTx(id, rawData)
+        onNewTx(normalized)
+      }
+    }
+  }
+
+  // 1. Primary: EventSource (Server-Sent Events)
   try {
     const endpoint = `${url}/transactions.json`
     es = new EventSource(endpoint)
@@ -126,16 +145,10 @@ export function listenFirebaseRealtime(onNewTx: (tx: Transaction) => void): () =
           return
         }
 
-        // Case 2: New single child pushed, path e.g. "/-OPq2..."
+        // Case 2: New single child pushed, path e.g. "/-P13z..."
         if (payload.path && payload.path !== "/") {
           const id = payload.path.replace(/^\//, "")
-          if (!seenIds.has(id)) {
-            seenIds.add(id)
-            if (!isInitial && payload.data && typeof payload.data === "object") {
-              const normalized = normalizeFirebaseTx(id, payload.data)
-              onNewTx(normalized)
-            }
-          }
+          handleIncoming(id, payload.data)
         }
       } catch (err) {
         console.warn("SSE parse error:", err)
@@ -143,16 +156,43 @@ export function listenFirebaseRealtime(onNewTx: (tx: Transaction) => void): () =
     })
 
     es.onerror = (e) => {
-      console.warn("Firebase SSE error, will auto-reconnect:", e)
+      console.warn("Firebase SSE connection issue, fallback active:", e)
     }
   } catch (e) {
     console.warn("EventSource init error:", e)
   }
 
+  // 2. High-reliability Polling Fallback (every 3 seconds)
+  const pollFirebase = async () => {
+    try {
+      const res = await fetch(`${url}/transactions.json`)
+      if (!res.ok) return
+      const data = await res.json()
+      if (!data || typeof data !== "object") return
+
+      for (const [id, item] of Object.entries(data)) {
+        if (!seenIds.has(id)) {
+          handleIncoming(id, item)
+        }
+      }
+      isInitial = false
+    } catch {
+      // Ignore background network blips
+    }
+  }
+
+  // Run initial poll quickly to mark baseline or catch any immediate changes
+  setTimeout(pollFirebase, 1500)
+  pollTimer = setInterval(pollFirebase, 3500)
+
   return () => {
     if (es) {
       es.close()
       es = null
+    }
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
     }
   }
 }

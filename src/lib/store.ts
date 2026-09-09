@@ -124,13 +124,20 @@ export function parseRawNotification(text: string): {
   message: string
   paymentMethod: PaymentMethod
 } {
-  let cleanText = text.trim()
+  let cleanText = text
+    .replace(/\{not_text\}/gi, "")
+    .replace(/\[not_text\]/gi, "")
+    .replace(/\{not_ticker\}/gi, "")
+    .replace(/\[not_ticker\]/gi, "")
+    .replace(/\{not_title\}/gi, "")
+    .replace(/\[not_title\]/gi, "")
+    .trim()
 
   // 1. Detect Payment Method
   let paymentMethod: PaymentMethod = "ShopeePay"
   const lower = cleanText.toLowerCase()
   if (lower.includes("gopay") || lower.includes("go-pay")) paymentMethod = "GoPay"
-  else if (lower.includes("shopee") || lower.includes("spay")) paymentMethod = "ShopeePay"
+  else if (lower.includes("shopee") || lower.includes("spay") || lower.includes("a payment of")) paymentMethod = "ShopeePay"
   else if (lower.includes("ovo")) paymentMethod = "OVO"
   else if (lower.includes("dana")) paymentMethod = "DANA"
   else if (lower.includes("linkaja") || lower.includes("link aja")) paymentMethod = "LinkAja"
@@ -141,34 +148,40 @@ export function parseRawNotification(text: string): {
   else if (lower.includes("bsi")) paymentMethod = "BSI"
   else if (lower.includes("qris")) paymentMethod = "QRIS"
 
-  // 2. Extract Amount
+  // 2. Extract Amount (Supports Rp67, Rp 50.000, 50000, etc.)
   let amount = 0
   const rpMatch = cleanText.match(/(?:rp\.?|idr)\s*([\d.,]+)/i)
   if (rpMatch && rpMatch[1]) {
     const rawNum = rpMatch[1].replace(/[^\d]/g, "")
     amount = parseInt(rawNum, 10) || 0
   } else {
-    const numMatch = cleanText.match(/\b\d{4,9}\b/)
+    const numMatch = cleanText.match(/\b\d{2,9}\b/)
     if (numMatch) {
       amount = parseInt(numMatch[0], 10) || 0
     }
   }
 
-  // 3. Extract Sender Name
-  let name = "Pelanggan"
+  // 3. Extract Sender Name (Indonesian & English)
+  let name = "Pelanggan QRIS"
   const dariMatch = cleanText.match(/dari\s+([A-Za-z0-9\s.]+?)(?:\s+berhasil|\s+sebesar|\s+melalui|\s+ke|\s+pada|$|\.)/i)
+  const fromMatch = cleanText.match(/from\s+([A-Za-z0-9\s.]+?)(?:\s+has|\s+for|\s+ref|\.|;|$)/i)
+  const olehMatch = cleanText.match(/oleh\s+([A-Za-z0-9\s.]+?)(?:\s+berhasil|\s+sebesar|$|\.)/i)
+
   if (dariMatch && dariMatch[1] && dariMatch[1].trim().length > 1) {
     name = dariMatch[1].trim()
-  } else {
-    const olehMatch = cleanText.match(/oleh\s+([A-Za-z0-9\s.]+?)(?:\s+berhasil|\s+sebesar|$|\.)/i)
-    if (olehMatch && olehMatch[1]) {
-      name = olehMatch[1].trim()
-    }
+  } else if (fromMatch && fromMatch[1] && fromMatch[1].trim().length > 1) {
+    name = fromMatch[1].trim()
+  } else if (olehMatch && olehMatch[1] && olehMatch[1].trim().length > 1) {
+    name = olehMatch[1].trim()
   }
+
+  // Clean name from ref codes or junk
+  name = name.replace(/^ref:.*$/i, "").trim()
+  if (!name || name.length < 2) name = "Pelanggan QRIS"
 
   return {
     name: name.slice(0, 30),
-    amount: amount || 10000,
+    amount: amount > 0 ? amount : 10000,
     message: "",
     paymentMethod
   }
