@@ -1,9 +1,17 @@
 "use client"
 import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
-import { Send, Zap, Trash2, Play, Pause, Volume2, VolumeX, Download, RotateCcw } from "lucide-react"
-import { addTransaction, clearTransactions, getTransactions, formatRp, Transaction, terbilang, PAYMENT_METHODS, PaymentMethod } from "@/lib/store"
+import {
+  Send, Zap, Trash2, Play, Pause, Volume2, VolumeX, Download, RotateCcw,
+  Cloud, CheckCircle2, AlertCircle, Copy, Smartphone, ExternalLink
+} from "lucide-react"
+import {
+  addTransaction, clearTransactions, getTransactions, formatRp, Transaction,
+  terbilang, PAYMENT_METHODS, PaymentMethod, getFirebaseUrl, setFirebaseUrl,
+  parseRawNotification
+} from "@/lib/store"
 import { playChime, speak } from "@/lib/audio"
+import { testFirebaseConnection, pushTransactionToFirebase } from "@/lib/firebase"
 
 const PRESETS = [
   { label: "Rp 2K", amount: 2000 },
@@ -38,8 +46,17 @@ export default function AdminPage() {
   const [volume, setVolume] = useState(0.8)
   const simRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Firebase state
+  const [fbUrl, setFbUrl] = useState("")
+  const [fbStatus, setFbStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
+  const [fbMessage, setFbMessage] = useState("")
+  const [copiedUrl, setCopiedUrl] = useState(false)
+  const [rawNotifText, setRawNotifText] = useState("Pembayaran Rp 50.000 dari BUDI berhasil diterima")
+
   useEffect(() => {
     setTxs(getTransactions())
+    setFbUrl(getFirebaseUrl())
+
     const handleUpdate = () => setTxs(getTransactions())
     window.addEventListener("dtx_add", handleUpdate)
     window.addEventListener("dtx_clear", handleUpdate)
@@ -54,6 +71,8 @@ export default function AdminPage() {
   const trigger = (n: string, a: number, m: string, pm: PaymentMethod) => {
     if (!n.trim() || !a) return
     addTransaction({ name: n.trim(), amount: a, message: m.trim(), paymentMethod: pm })
+    pushTransactionToFirebase({ name: n.trim(), amount: a, message: m.trim(), paymentMethod: pm }).catch(() => {})
+
     if (!muted) {
       playChime(volume)
       setTimeout(() => speak(
@@ -67,6 +86,39 @@ export default function AdminPage() {
     if (!name.trim() || !amount) return alert("Nama dan nominal wajib diisi!")
     trigger(name, Number(amount), message, paymentMethod)
     setName(""); setAmount(""); setMessage("")
+  }
+
+  const handleSaveFirebase = async () => {
+    setFirebaseUrl(fbUrl)
+    if (!fbUrl.trim()) {
+      setFbStatus("idle")
+      setFbMessage("URL Firebase dihapus (offline mode).")
+      return
+    }
+    setFbStatus("testing")
+    setFbMessage("Menguji koneksi ke cloud...")
+    const res = await testFirebaseConnection(fbUrl)
+    if (res.success) {
+      setFbStatus("success")
+      setFbMessage(res.message)
+    } else {
+      setFbStatus("error")
+      setFbMessage(res.message)
+    }
+  }
+
+  const handleTestRawNotif = () => {
+    if (!rawNotifText.trim()) return
+    const parsed = parseRawNotification(rawNotifText)
+    trigger(parsed.name, parsed.amount, parsed.message, parsed.paymentMethod)
+  }
+
+  const copyWebhookUrl = () => {
+    const clean = fbUrl.trim().replace(/\/+$/, "")
+    const webhook = clean ? `${clean}/transactions.json` : "https://<PROJECT-ID>.firebaseio.com/transactions.json"
+    navigator.clipboard.writeText(webhook)
+    setCopiedUrl(true)
+    setTimeout(() => setCopiedUrl(false), 2000)
   }
 
   const randomSim = () => {
@@ -238,9 +290,90 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Right: Transaction Log */}
-        <div className="col-span-7">
-          <div className="glass rounded-2xl p-5 h-full flex flex-col">
+        {/* Right: Cloud Soundbox & Transaction Log */}
+        <div className="col-span-7 space-y-4">
+          {/* Cloud & MacroDroid Soundbox Setup */}
+          <div className="glass rounded-2xl p-5 border" style={{ borderColor: "rgba(0,255,213,0.25)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Cloud size={16} style={{ color: "var(--neon-cyan)" }} />
+                <h2 className="text-sm font-bold uppercase tracking-widest neon-text">Koneksi Soundbox HP (Firebase & MacroDroid)</h2>
+              </div>
+              {fbStatus === "success" && (
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30 flex items-center gap-1">
+                  <CheckCircle2 size={11} /> Cloud Terhubung
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed mb-3">
+              Hubungkan aplikasi <strong className="text-white">Shopee Partner</strong> di HP Anda agar setiap pembayaran QRIS otomatis membunyikan suara di web ini.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Firebase Realtime Database URL</label>
+                <div className="flex gap-2">
+                  <input
+                    value={fbUrl} onChange={e => setFbUrl(e.target.value)}
+                    placeholder="https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400 transition-colors"
+                  />
+                  <button onClick={handleSaveFirebase} disabled={fbStatus === "testing"}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#050d1a] transition-all hover:opacity-90 active:scale-95 shrink-0"
+                    style={{ background: "var(--neon-cyan)" }}
+                  >
+                    {fbStatus === "testing" ? "Menguji..." : "Simpan & Tes"}
+                  </button>
+                </div>
+                {fbMessage && (
+                  <p className={`text-xs mt-1.5 flex items-center gap-1 ${fbStatus === "success" ? "text-green-400" : fbStatus === "error" ? "text-red-400" : "text-slate-400"}`}>
+                    {fbStatus === "success" ? <CheckCircle2 size={12} /> : fbStatus === "error" ? <AlertCircle size={12} /> : null}
+                    {fbMessage}
+                  </p>
+                )}
+              </div>
+
+              {/* Webhook endpoint box */}
+              <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <Smartphone size={13} style={{ color: "var(--neon-cyan)" }} /> Webhook REST URL untuk MacroDroid
+                  </span>
+                  <button onClick={copyWebhookUrl}
+                    className="text-[11px] px-2 py-0.5 rounded-lg border border-white/20 hover:border-cyan-400 text-slate-300 hover:text-white transition-colors flex items-center gap-1">
+                    <Copy size={10} /> {copiedUrl ? "Tersalin!" : "Salin URL"}
+                  </button>
+                </div>
+                <p className="font-mono text-[11px] text-cyan-300 break-all select-all">
+                  {fbUrl ? `${fbUrl.trim().replace(/\/+$/, "")}/transactions.json` : "https://<YOUR-PROJECT>.firebaseio.com/transactions.json"}
+                </p>
+              </div>
+
+              {/* Interactive Raw Notification Test */}
+              <div className="pt-2 border-t border-white/10 space-y-2">
+                <label className="text-xs text-slate-300 font-semibold block flex items-center gap-1">
+                  <Zap size={12} className="text-yellow-400" /> Uji Coba Parser Notifikasi Mentah HP
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    value={rawNotifText} onChange={e => setRawNotifText(e.target.value)}
+                    placeholder="Contoh: Pembayaran Rp 25.000 dari BUDI berhasil"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
+                  />
+                  <button onClick={handleTestRawNotif}
+                    className="glass px-3 py-2 rounded-xl text-xs font-bold hover:border-cyan-400 text-cyan-300 transition-all shrink-0">
+                    Test & Bunyikan
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Sistem otomatis mengekstrak nominal, nama pengirim, dan metode pembayaran dari teks notifikasi Shopee Partner, BCA, Dana, atau GoPay.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass rounded-2xl p-5 flex-1 flex flex-col min-h-[350px]">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold uppercase tracking-widest neon-text">Log Transaksi ({txs.length})</h2>
               <div className="flex gap-2">

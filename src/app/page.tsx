@@ -2,9 +2,10 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { Crown, Zap, Wifi, Users, TrendingUp, Clock, CreditCard, CheckCircle2 } from "lucide-react"
+import { Crown, Zap, Wifi, Users, TrendingUp, Clock, CreditCard, CheckCircle2, Cloud, CloudOff, Volume2, VolumeX } from "lucide-react"
 import { useTransactions } from "@/hooks/useTransactions"
 import { formatRp, timeAgo, LeaderEntry, Transaction } from "@/lib/store"
+import { playChime, announcePayment } from "@/lib/audio"
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ""
 
@@ -147,8 +148,9 @@ function TransactionAlert({ tx, show, onDismiss }: { tx: Transaction | null; sho
 }
 
 export default function MainDisplay() {
-  const { txs, leaderboard, latest, showAlert, dismissAlert } = useTransactions()
+  const { txs, leaderboard, latest, showAlert, dismissAlert, isCloudConnected } = useTransactions()
   const [time, setTime] = useState("")
+  const [soundEnabled, setSoundEnabled] = useState(true)
   const totalAmount = txs.reduce((s, t) => s + t.amount, 0)
 
   useEffect(() => {
@@ -157,6 +159,14 @@ export default function MainDisplay() {
     const t = setInterval(update, 1000)
     return () => clearInterval(t)
   }, [])
+
+  // Play sound when new transaction arrives
+  useEffect(() => {
+    if (showAlert && latest && soundEnabled) {
+      playChime()
+      announcePayment(latest.name, latest.amount, latest.message, latest.paymentMethod)
+    }
+  }, [showAlert, latest, soundEnabled])
 
   return (
     <div className="min-h-screen grid-bg flex flex-col p-4 gap-4">
@@ -171,20 +181,47 @@ export default function MainDisplay() {
             <p className="text-xs text-slate-400">Store ID: <span className="text-white font-mono font-bold">23598782</span></p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             <span className="text-xs text-green-400 font-medium">LIVE</span>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-400">Total Masuk</p>
+
+          {/* Cloud Sync Status */}
+          {isCloudConnected ? (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 text-xs font-medium">
+              <Cloud size={13} className="text-cyan-400 animate-pulse" /> Cloud Sync
+            </span>
+          ) : (
+            <Link href="/admin" className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-400 text-xs hover:bg-amber-900/40 transition-colors">
+              <CloudOff size={13} /> Setup Cloud
+            </Link>
+          )}
+
+          {/* Sound Toggle */}
+          <button
+            onClick={() => {
+              const next = !soundEnabled
+              setSoundEnabled(next)
+              if (next) playChime(0.5)
+            }}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-medium transition-all"
+            style={soundEnabled ? { borderColor: "rgba(0,255,213,0.4)", color: "var(--neon-cyan)", background: "rgba(0,255,213,0.08)" } : { borderColor: "rgba(255,255,255,0.1)", color: "#94a3b8" }}
+            title="Klik untuk tes / matikan suara"
+          >
+            {soundEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
+            <span>{soundEnabled ? "Suara ON" : "Mute"}</span>
+          </button>
+
+          <div className="text-right pl-2 border-l border-white/10">
+            <p className="text-[10px] uppercase tracking-wider text-slate-400">Total Masuk</p>
             <p className="text-sm font-black neon-green-text">{formatRp(totalAmount)}</p>
           </div>
-          <div className="flex items-center gap-2 text-slate-400">
-            <Users size={14} />
-            <span className="text-sm font-mono">{txs.length} Transaksi</span>
+          <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+            <Users size={13} />
+            <span className="font-mono">{txs.length} Trx</span>
           </div>
-          <span className="text-sm font-mono text-slate-300">{time}</span>
+          <span className="text-xs font-mono text-slate-300">{time}</span>
           <Link href="/admin" className="text-xs px-3 py-1.5 rounded-lg border border-white/20 hover:border-cyan-400 transition-colors text-slate-400 hover:text-white">
             Panel Admin
           </Link>

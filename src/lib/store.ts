@@ -98,3 +98,76 @@ export function timeAgo(ts: number): string {
 
 export const EV_ADD_NAME = EV_ADD
 export const EV_CLEAR_NAME = EV_CLEAR
+
+const FIREBASE_KEY = "detronics_firebase_url"
+
+export function getFirebaseUrl(): string {
+  if (typeof window === "undefined") return ""
+  return localStorage.getItem(FIREBASE_KEY) || ""
+}
+
+export function setFirebaseUrl(url: string): void {
+  if (typeof window === "undefined") return
+  const clean = url.trim().replace(/\/+$/, "")
+  if (clean) {
+    localStorage.setItem(FIREBASE_KEY, clean)
+  } else {
+    localStorage.removeItem(FIREBASE_KEY)
+  }
+}
+
+export function parseRawNotification(text: string): {
+  name: string
+  amount: number
+  message: string
+  paymentMethod: PaymentMethod
+} {
+  let cleanText = text.trim()
+
+  // 1. Detect Payment Method
+  let paymentMethod: PaymentMethod = "ShopeePay"
+  const lower = cleanText.toLowerCase()
+  if (lower.includes("gopay") || lower.includes("go-pay")) paymentMethod = "GoPay"
+  else if (lower.includes("shopee") || lower.includes("spay")) paymentMethod = "ShopeePay"
+  else if (lower.includes("ovo")) paymentMethod = "OVO"
+  else if (lower.includes("dana")) paymentMethod = "DANA"
+  else if (lower.includes("linkaja") || lower.includes("link aja")) paymentMethod = "LinkAja"
+  else if (lower.includes("bca")) paymentMethod = "BCA"
+  else if (lower.includes("mandiri") || lower.includes("livin")) paymentMethod = "Mandiri"
+  else if (lower.includes("bni")) paymentMethod = "BNI"
+  else if (lower.includes("bri") || lower.includes("brimo")) paymentMethod = "BRI"
+  else if (lower.includes("bsi")) paymentMethod = "BSI"
+  else if (lower.includes("qris")) paymentMethod = "QRIS"
+
+  // 2. Extract Amount
+  let amount = 0
+  const rpMatch = cleanText.match(/(?:rp\.?|idr)\s*([\d.,]+)/i)
+  if (rpMatch && rpMatch[1]) {
+    const rawNum = rpMatch[1].replace(/[^\d]/g, "")
+    amount = parseInt(rawNum, 10) || 0
+  } else {
+    const numMatch = cleanText.match(/\b\d{4,9}\b/)
+    if (numMatch) {
+      amount = parseInt(numMatch[0], 10) || 0
+    }
+  }
+
+  // 3. Extract Sender Name
+  let name = "Pelanggan"
+  const dariMatch = cleanText.match(/dari\s+([A-Za-z0-9\s.]+?)(?:\s+berhasil|\s+sebesar|\s+melalui|\s+ke|\s+pada|$|\.)/i)
+  if (dariMatch && dariMatch[1] && dariMatch[1].trim().length > 1) {
+    name = dariMatch[1].trim()
+  } else {
+    const olehMatch = cleanText.match(/oleh\s+([A-Za-z0-9\s.]+?)(?:\s+berhasil|\s+sebesar|$|\.)/i)
+    if (olehMatch && olehMatch[1]) {
+      name = olehMatch[1].trim()
+    }
+  }
+
+  return {
+    name: name.slice(0, 30),
+    amount: amount || 10000,
+    message: "",
+    paymentMethod
+  }
+}
