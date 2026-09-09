@@ -28,10 +28,29 @@ const KEY = "detronics_txs"
 const EV_ADD = "dtx_add"
 const EV_CLEAR = "dtx_clear"
 
+export function isTestTransaction(name: string, message?: string): boolean {
+  const s = `${name} ${message || ""}`.toLowerCase()
+  return (
+    s.includes("(owner test)") ||
+    s.includes("owner test") ||
+    s.includes("testing") ||
+    s.includes("simulasi") ||
+    s.includes("dummy")
+  )
+}
+
 export function getTransactions(): Transaction[] {
   if (typeof window === "undefined") return []
   try {
-    return JSON.parse(localStorage.getItem(KEY) || "[]")
+    const raw = JSON.parse(localStorage.getItem(KEY) || "[]")
+    if (Array.isArray(raw)) {
+      const filtered = raw.filter((t: Transaction) => !isTestTransaction(t.name, t.message))
+      if (filtered.length !== raw.length) {
+        localStorage.setItem(KEY, JSON.stringify(filtered))
+      }
+      return filtered
+    }
+    return []
   } catch {
     return []
   }

@@ -1,5 +1,5 @@
 "use client"
-import { Transaction, getFirebaseUrl, parseRawNotification, PaymentMethod } from "./store"
+import { Transaction, getFirebaseUrl, parseRawNotification, PaymentMethod, isTestTransaction } from "./store"
 
 export interface FirebaseRawPayload {
   name?: string
@@ -107,7 +107,10 @@ export async function fetchFirebaseTransactions(): Promise<Transaction[]> {
     const list: Transaction[] = []
     for (const [id, item] of Object.entries(data)) {
       if (item && typeof item === "object") {
-        list.push(normalizeFirebaseTx(id, item as FirebaseRawPayload))
+        const normalized = normalizeFirebaseTx(id, item as FirebaseRawPayload)
+        if (!isTestTransaction(normalized.name, normalized.message)) {
+          list.push(normalized)
+        }
       }
     }
     return list.sort((a, b) => b.timestamp - a.timestamp)
@@ -152,7 +155,9 @@ export function listenFirebaseRealtime(onNewTx: (tx: Transaction) => void): () =
       seenIds.add(id)
       if (!isInitial && rawData && typeof rawData === "object") {
         const normalized = normalizeFirebaseTx(id, rawData)
-        onNewTx(normalized)
+        if (!isTestTransaction(normalized.name, normalized.message)) {
+          onNewTx(normalized)
+        }
       }
     }
   }

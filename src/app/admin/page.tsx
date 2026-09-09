@@ -10,7 +10,7 @@ import {
   terbilang, PAYMENT_METHODS, PaymentMethod, getFirebaseUrl, setFirebaseUrl,
   parseRawNotification
 } from "@/lib/store"
-import { playChime, speak } from "@/lib/audio"
+import { playChime, speak, announcePayment } from "@/lib/audio"
 import { testFirebaseConnection, pushTransactionToFirebase } from "@/lib/firebase"
 
 const PRESETS = [
@@ -80,14 +80,9 @@ export default function AdminPage() {
   const trigger = (n: string, a: number, m: string, pm: PaymentMethod) => {
     if (!n.trim() || !a) return
     addTransaction({ name: n.trim(), amount: a, message: m.trim(), paymentMethod: pm })
-    pushTransactionToFirebase({ name: n.trim(), amount: a, message: m.trim(), paymentMethod: pm }).catch(() => {})
 
     if (!muted) {
-      playChime(volume)
-      setTimeout(() => speak(
-        `Diterima ${terbilang(a)} rupiah melalui ${pm} dari ${n}. Terima kasih sudah support Detronics I D!${m ? " Pesan: " + m : ""}`,
-        volume
-      ), 800)
+      announcePayment(n.trim(), a, m.trim(), pm, volume)
     }
   }
 
