@@ -2,7 +2,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useState, useCallback, useRef } from "react"
-import { Crown, Zap, Wifi, Users, TrendingUp, Clock, CreditCard, CheckCircle2, Cloud, CloudOff, Volume2, VolumeX, Sparkles } from "lucide-react"
+import { Crown, Zap, Wifi, Users, TrendingUp, Clock, CreditCard, CheckCircle2, Cloud, CloudOff, Volume2, VolumeX, Sparkles, RotateCcw } from "lucide-react"
 import { useTransactions } from "@/hooks/useTransactions"
 import { formatRp, timeAgo, LeaderEntry, Transaction } from "@/lib/store"
 import { playChime, announcePayment, unlockAudio, isAudioUnlocked } from "@/lib/audio"
@@ -46,7 +46,7 @@ function LeaderboardCard({ entries }: { entries: LeaderEntry[] }) {
   )
 }
 
-function ActivityFeed({ txs }: { txs: Transaction[] }) {
+function ActivityFeed({ txs, onReplay }: { txs: Transaction[]; onReplay?: (tx: Transaction) => void }) {
   return (
     <div className="glass rounded-2xl p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -56,15 +56,15 @@ function ActivityFeed({ txs }: { txs: Transaction[] }) {
       <div className="space-y-2 max-h-40 overflow-auto">
         {txs.length === 0 && <p className="text-slate-500 text-xs text-center py-4">Belum ada transaksi</p>}
         {txs.slice(0, 8).map(tx => (
-          <div key={tx.id} className="flex items-center gap-3 text-xs py-1.5 border-b border-white/5">
+          <div key={tx.id} className="flex items-center gap-2.5 text-xs py-1.5 border-b border-white/5 group">
             <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-bold text-xs"
               style={{ background: "rgba(0,255,213,0.15)", color: "var(--neon-cyan)" }}>
               {tx.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-semibold">{tx.name}</span>
-                <span className="text-slate-600 text-[10px] px-1.5 py-0.5 rounded-full border border-white/10"
+                <span className="font-semibold truncate">{tx.name}</span>
+                <span className="text-slate-600 text-[10px] px-1.5 py-0.5 rounded-full border border-white/10 shrink-0"
                   style={{ color: METHOD_COLORS[tx.paymentMethod] ?? "#64748b" }}>
                   {tx.paymentMethod}
                 </span>
@@ -73,8 +73,20 @@ function ActivityFeed({ txs }: { txs: Transaction[] }) {
             </div>
             <div className="text-right shrink-0">
               <p className="font-bold neon-green-text">{formatRp(tx.amount)}</p>
-              <p className="text-slate-500">{timeAgo(tx.timestamp)}</p>
+              <p className="text-slate-500 text-[11px]">{timeAgo(tx.timestamp)}</p>
             </div>
+            {onReplay && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onReplay(tx)
+                }}
+                className="p-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-300 border border-white/10 hover:border-cyan-400/40 transition-all shrink-0 active:scale-90"
+                title={`Putar ulang suara ${tx.name} (${formatRp(tx.amount)})`}
+              >
+                <RotateCcw size={12} />
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -82,7 +94,17 @@ function ActivityFeed({ txs }: { txs: Transaction[] }) {
   )
 }
 
-function TransactionAlert({ tx, show, onDismiss }: { tx: Transaction | null; show: boolean; onDismiss: () => void }) {
+function TransactionAlert({
+  tx,
+  show,
+  onDismiss,
+  onReplay
+}: {
+  tx: Transaction | null
+  show: boolean
+  onDismiss: () => void
+  onReplay?: (tx: Transaction) => void
+}) {
   const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
@@ -91,7 +113,7 @@ function TransactionAlert({ tx, show, onDismiss }: { tx: Transaction | null; sho
       const t = setTimeout(() => {
         setLeaving(true)
         setTimeout(onDismiss, 500)
-      }, 7000)
+      }, 8500)
       return () => clearTimeout(t)
     }
   }, [show, onDismiss])
@@ -125,7 +147,7 @@ function TransactionAlert({ tx, show, onDismiss }: { tx: Transaction | null; sho
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-lg leading-tight">{tx.name}</p>
+            <p className="font-bold text-lg leading-tight truncate">{tx.name}</p>
 
             {/* Amount */}
             <p className="text-2xl font-black neon-green-text">{formatRp(tx.amount)}</p>
@@ -141,6 +163,27 @@ function TransactionAlert({ tx, show, onDismiss }: { tx: Transaction | null; sho
 
             {tx.message && <p className="text-sm text-slate-300 mt-2 italic truncate">&ldquo;{tx.message}&rdquo;</p>}
           </div>
+        </div>
+
+        {/* Replay action buttons */}
+        <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              if (onReplay && tx) onReplay(tx)
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 text-xs font-bold transition-all active:scale-95 shadow-sm hover:shadow-cyan-500/20"
+            title="Klik untuk memutar ulang suara notifikasi donasi ini"
+          >
+            <RotateCcw size={13} />
+            <span>🔁 Putar Ulang Suara</span>
+          </button>
+          <button
+            onClick={() => { setLeaving(true); setTimeout(onDismiss, 500) }}
+            className="text-xs text-slate-400 hover:text-white px-2 py-1 transition-colors"
+          >
+            Tutup
+          </button>
         </div>
       </div>
     </div>
@@ -187,6 +230,14 @@ export default function MainDisplay() {
     return () => clearInterval(t)
   }, [])
 
+  // Replay transaction sound
+  const handleReplayTx = useCallback(async (targetTx?: Transaction | null) => {
+    const txToPlay = targetTx || latest || txs[0]
+    if (!txToPlay) return
+    await triggerUnlock()
+    announcePayment(txToPlay.name, txToPlay.amount, txToPlay.message, txToPlay.paymentMethod, 1)
+  }, [latest, txs, triggerUnlock])
+
   // Play sound when new transaction arrives
   useEffect(() => {
     if (showAlert && latest && soundEnabled) {
@@ -228,6 +279,24 @@ export default function MainDisplay() {
               <CloudOff size={13} /> Setup Cloud
             </Link>
           )}
+
+          {/* Replay Suara Terakhir Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleReplayTx()
+            }}
+            disabled={!latest && txs.length === 0}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-semibold transition-all active:scale-95 shadow-sm ${
+              latest || txs.length > 0
+                ? "border-emerald-500/50 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 cursor-pointer shadow-emerald-500/10"
+                : "border-white/10 text-slate-600 cursor-not-allowed opacity-40"
+            }`}
+            title="Putar ulang suara donasi/pembayaran paling terakhir"
+          >
+            <RotateCcw size={13} />
+            <span>Replay Suara</span>
+          </button>
 
           {/* Tes Suara Button */}
           <button
@@ -320,7 +389,7 @@ export default function MainDisplay() {
           </div>
 
           {/* Activity feed di bawah QR */}
-          <ActivityFeed txs={txs} />
+          <ActivityFeed txs={txs} onReplay={handleReplayTx} />
         </div>
 
         {/* RIGHT: Stats + Leaderboard */}
@@ -359,7 +428,7 @@ export default function MainDisplay() {
       </footer>
 
       {/* Alert Overlay */}
-      <TransactionAlert tx={latest} show={showAlert} onDismiss={dismissAlert} />
+      <TransactionAlert tx={latest} show={showAlert} onDismiss={dismissAlert} onReplay={handleReplayTx} />
     </div>
   )
 }
