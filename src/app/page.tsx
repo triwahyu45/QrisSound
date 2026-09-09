@@ -194,34 +194,30 @@ export default function MainDisplay() {
   const { txs, leaderboard, latest, showAlert, dismissAlert, isCloudConnected } = useTransactions()
   const [time, setTime] = useState("")
   const [soundEnabled, setSoundEnabled] = useState(true)
-  const [audioUnlockedState, setAudioUnlockedState] = useState(false)
   const lastAnnouncedId = useRef<string | null>(null)
   const totalAmount = txs.reduce((s, t) => s + t.amount, 0)
 
-  // Trigger audio unlock on any user gesture
-  const triggerUnlock = useCallback(async () => {
-    const ok = await unlockAudio()
-    setAudioUnlockedState(true)
-    return ok
-  }, [])
-
+  // Seamless silent auto-unlock on load and on any interaction
   useEffect(() => {
-    if (isAudioUnlocked()) {
-      setAudioUnlockedState(true)
-    }
+    // Attempt instant auto-unlock as soon as page mounts
+    unlockAudio().catch(() => {})
 
-    const handleGesture = () => {
-      triggerUnlock()
+    const handleSilentUnlock = () => {
+      unlockAudio().catch(() => {})
     }
-    window.addEventListener("click", handleGesture)
-    window.addEventListener("touchstart", handleGesture)
-    window.addEventListener("keydown", handleGesture)
+    window.addEventListener("pointerdown", handleSilentUnlock, { passive: true })
+    window.addEventListener("click", handleSilentUnlock, { passive: true })
+    window.addEventListener("touchstart", handleSilentUnlock, { passive: true })
+    window.addEventListener("keydown", handleSilentUnlock, { passive: true })
+    window.addEventListener("scroll", handleSilentUnlock, { passive: true })
     return () => {
-      window.removeEventListener("click", handleGesture)
-      window.removeEventListener("touchstart", handleGesture)
-      window.removeEventListener("keydown", handleGesture)
+      window.removeEventListener("pointerdown", handleSilentUnlock)
+      window.removeEventListener("click", handleSilentUnlock)
+      window.removeEventListener("touchstart", handleSilentUnlock)
+      window.removeEventListener("keydown", handleSilentUnlock)
+      window.removeEventListener("scroll", handleSilentUnlock)
     }
-  }, [triggerUnlock])
+  }, [])
 
   useEffect(() => {
     const update = () => setTime(new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }))
@@ -234,21 +230,21 @@ export default function MainDisplay() {
   const handleReplayTx = useCallback(async (targetTx?: Transaction | null) => {
     const txToPlay = targetTx || latest || txs[0]
     if (!txToPlay) return
-    await triggerUnlock()
+    await unlockAudio()
     announcePayment(txToPlay.name, txToPlay.amount, txToPlay.message, txToPlay.paymentMethod, 1)
-  }, [latest, txs, triggerUnlock])
+  }, [latest, txs])
 
   // Play sound when new transaction arrives
   useEffect(() => {
     if (showAlert && latest && soundEnabled) {
       if (lastAnnouncedId.current !== latest.id) {
         lastAnnouncedId.current = latest.id
-        triggerUnlock().then(() => {
+        unlockAudio().then(() => {
           announcePayment(latest.name, latest.amount, latest.message, latest.paymentMethod)
         })
       }
     }
-  }, [showAlert, latest, soundEnabled, triggerUnlock])
+  }, [showAlert, latest, soundEnabled])
 
   return (
     <div className="min-h-screen grid-bg flex flex-col p-4 gap-4">
@@ -302,7 +298,7 @@ export default function MainDisplay() {
           <button
             onClick={async (e) => {
               e.stopPropagation()
-              await triggerUnlock()
+              await unlockAudio()
               announcePayment(
                 latest?.name || "Pelanggan QRIS",
                 latest?.amount || 10000,
@@ -346,24 +342,6 @@ export default function MainDisplay() {
           </Link>
         </div>
       </header>
-
-      {/* Audio Unlock Notice Bar */}
-      {!audioUnlockedState && (
-        <div
-          onClick={triggerUnlock}
-          className="glass rounded-xl px-4 py-2.5 flex items-center justify-between border border-amber-500/40 bg-amber-500/10 text-amber-300 text-xs font-medium cursor-pointer animate-pulse hover:bg-amber-500/20 transition-all"
-        >
-          <div className="flex items-center gap-2">
-            <Volume2 size={16} className="text-amber-400 shrink-0" />
-            <span>
-              <strong>Audio Browser Belum Aktif:</strong> Klik di sini (atau klik di mana saja pada layar) agar browser mengizinkan pemutaran suara chime & pembacaan notifikasi soundbox otomatis.
-            </span>
-          </div>
-          <span className="shrink-0 ml-3 px-3 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs shadow-md hover:bg-amber-400 transition-colors">
-            Aktifkan Suara Sekarang
-          </span>
-        </div>
-      )}
 
       {/* Main content — QR kiri, info kanan */}
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
