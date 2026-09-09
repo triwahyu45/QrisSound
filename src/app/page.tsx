@@ -18,7 +18,13 @@ const METHOD_COLORS: Record<string, string> = {
   BRI: "#003087", BSI: "#3E8914", QRIS: "#6366f1", Lainnya: "#64748b"
 }
 
-function LeaderboardCard({ entries }: { entries: LeaderEntry[] }) {
+function LeaderboardCard({
+  entries,
+  onReplay
+}: {
+  entries: LeaderEntry[]
+  onReplay?: (name: string, amount: number, paymentMethod: string) => void
+}) {
   return (
     <div className="glass rounded-2xl p-5 h-full flex flex-col">
       <div className="flex items-center gap-2 mb-4">
@@ -29,18 +35,32 @@ function LeaderboardCard({ entries }: { entries: LeaderEntry[] }) {
         {entries.length === 0 && (
           <p className="text-center text-slate-500 text-sm py-8">Belum ada donasi</p>
         )}
-        {entries.slice(0, 10).map((e, i) => (
-          <div key={e.id || `${e.name}-${i}`} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
-            <span className={`text-sm font-black w-8 text-center ${RANK_CLASS[i] ?? "text-slate-400"}`}>
+        {entries.slice(0, 10).map((entry, i) => (
+          <div key={entry.id || `${entry.name}-${i}`} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all group">
+            <span className={`text-sm font-black w-8 text-center shrink-0 ${RANK_CLASS[i] ?? "text-slate-400"}`}>
               {i < 3 ? RANK_LABEL[i] : `${i + 1}`}
             </span>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">{e.name}</p>
+              <p className="font-semibold text-sm truncate">{entry.name}</p>
               <p className="text-xs text-slate-400">
-                {formatRp(e.total)} {e.paymentMethod ? `· ${e.paymentMethod}` : ""}
+                {formatRp(entry.total)} {entry.paymentMethod ? `· ${entry.paymentMethod}` : ""}
               </p>
             </div>
             {i === 0 && <Zap size={13} className="text-yellow-400 shrink-0" />}
+
+            {onReplay && (
+              <button
+                onClick={(ev) => {
+                  ev.stopPropagation()
+                  onReplay(entry.name, entry.total, entry.paymentMethod || "ShopeePay")
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/50 hover:border-cyan-300 text-cyan-300 hover:text-white text-xs font-bold transition-all active:scale-95 shadow-sm shrink-0 cursor-pointer"
+                title={`Putar suara donasi ${entry.name} (${formatRp(entry.total)})`}
+              >
+                <Volume2 size={13} className="text-cyan-400" />
+                <span>🔊 Putar Suara</span>
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -83,10 +103,11 @@ function ActivityFeed({ txs, onReplay }: { txs: Transaction[]; onReplay?: (tx: T
                   e.stopPropagation()
                   onReplay(tx)
                 }}
-                className="p-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-300 border border-white/10 hover:border-cyan-400/40 transition-all shrink-0 active:scale-90"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-300 hover:text-white border border-cyan-400/30 hover:border-cyan-400 transition-all shrink-0 active:scale-90 font-medium cursor-pointer"
                 title={`Putar ulang suara ${tx.name} (${formatRp(tx.amount)})`}
               >
-                <RotateCcw size={12} />
+                <Volume2 size={12} className="text-cyan-400" />
+                <span className="text-[11px]">Putar</span>
               </button>
             )}
           </div>
@@ -394,7 +415,13 @@ export default function MainDisplay() {
 
           {/* Leaderboard */}
           <div className="flex-1">
-            <LeaderboardCard entries={leaderboard} />
+            <LeaderboardCard
+              entries={leaderboard}
+              onReplay={(name, amount, pm) => {
+                unlockAudio()
+                announcePayment(name, amount, "", pm, 1)
+              }}
+            />
           </div>
         </div>
       </div>

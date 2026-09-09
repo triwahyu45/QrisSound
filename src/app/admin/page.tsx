@@ -413,6 +413,17 @@ export default function AdminPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/10 text-slate-400">{tx.paymentMethod}</span>
                           <span className="font-black text-sm neon-green-text">{formatRp(tx.amount)}</span>
+                          <button
+                            onClick={async () => {
+                              await playChime()
+                              announcePayment(tx.name, tx.amount, tx.message, tx.paymentMethod, volume)
+                            }}
+                            className="p-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 text-cyan-300 hover:text-white transition-all text-xs flex items-center gap-1 active:scale-90"
+                            title={`Putar ulang suara ${tx.name}`}
+                          >
+                            <Volume2 size={12} />
+                            <span className="text-[10px]">Putar</span>
+                          </button>
                         </div>
                       </div>
                     {tx.message && <p className="text-xs text-slate-400 italic truncate mt-0.5">&ldquo;{tx.message}&rdquo;</p>}
