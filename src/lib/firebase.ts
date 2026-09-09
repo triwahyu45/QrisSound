@@ -3,6 +3,11 @@ import { Transaction, getFirebaseUrl, parseRawNotification, PaymentMethod } from
 
 export interface FirebaseRawPayload {
   name?: string
+  customer?: string
+  sender?: string
+  title?: string
+  text?: string
+  bigText?: string
   amount?: number | string
   message?: string
   paymentMethod?: PaymentMethod
@@ -11,17 +16,43 @@ export interface FirebaseRawPayload {
 }
 
 export function normalizeFirebaseTx(id: string, data: FirebaseRawPayload): Transaction {
-  let name = data.name || "Pelanggan"
+  // Combine all raw text sources
+  const combinedRaw = [
+    data.raw || "",
+    data.title || "",
+    data.text || "",
+    data.bigText || ""
+  ].filter(Boolean).join(" | ")
+
+  let name = (data.name || data.customer || data.sender || "").trim()
+
+  // If title looks like a person's name (and not an app title)
+  if (!name && data.title) {
+    const t = data.title.trim()
+    const lower = t.toLowerCase()
+    const isAppTitle = lower.includes("shopee") || lower.includes("payment") || lower.includes("pembayaran") || lower.includes("partner") || lower.includes("qris") || lower.includes("notifikasi")
+    if (!isAppTitle && t.length >= 2) {
+      name = t
+    }
+  }
+
   let amount = typeof data.amount === "number" ? data.amount : parseInt(String(data.amount || "0").replace(/[^0-9]/g, ""), 10) || 0
   let message = data.message || ""
   let paymentMethod: PaymentMethod = data.paymentMethod || "ShopeePay"
 
-  // If raw notification text is supplied and amount is 0 or name is default, parse it
-  if (data.raw && (!amount || name === "Pelanggan")) {
-    const parsed = parseRawNotification(data.raw)
+  if (combinedRaw) {
+    const parsed = parseRawNotification(combinedRaw)
     if (!amount) amount = parsed.amount
-    if (name === "Pelanggan" && parsed.name) name = parsed.name
+    if (!name || name === "Pelanggan" || name === "Pelanggan QRIS") {
+      name = parsed.name
+    }
     if (!data.paymentMethod && parsed.paymentMethod) paymentMethod = parsed.paymentMethod
+  }
+
+  // If name is still generic, assign unique suffix from key/id so customers don't stack in the leaderboard
+  if (!name || name === "Pelanggan" || name === "Pelanggan QRIS") {
+    const shortId = id ? id.replace(/[^a-zA-Z0-9]/g, "").slice(-4) : String(Date.now()).slice(-4)
+    name = `Pelanggan #${shortId.toUpperCase()}`
   }
 
   // Normalize timestamp: MacroDroid sends seconds (10 digits, e.g. 1788937504) or milliseconds (13 digits)
@@ -32,7 +63,7 @@ export function normalizeFirebaseTx(id: string, data: FirebaseRawPayload): Trans
 
   return {
     id: id || String(ts),
-    name: name || "Pelanggan",
+    name,
     amount: amount > 0 ? amount : 10000,
     message,
     paymentMethod,

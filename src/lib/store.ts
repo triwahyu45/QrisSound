@@ -131,6 +131,8 @@ export function parseRawNotification(text: string): {
     .replace(/\[not_ticker\]/gi, "")
     .replace(/\{not_title\}/gi, "")
     .replace(/\[not_title\]/gi, "")
+    .replace(/\{not_big_text\}/gi, "")
+    .replace(/\[not_big_text\]/gi, "")
     .trim()
 
   // 1. Detect Payment Method
@@ -162,12 +164,15 @@ export function parseRawNotification(text: string): {
   }
 
   // 3. Extract Sender Name (Indonesian & English)
-  let name = "Pelanggan QRIS"
-  const dariMatch = cleanText.match(/dari\s+([A-Za-z0-9\s.]+?)(?:\s+berhasil|\s+sebesar|\s+melalui|\s+ke|\s+pada|$|\.)/i)
+  let name = ""
+  const custMatch = cleanText.match(/(?:customer(?:\s*name)?|nama(?:\s*pengirim)?|pengirim)\s*[:=]\s*([A-Za-z0-9\s.]+?)(?:\s*[\n\r;|\-]|\s+ref|\s+rp|$)/i)
+  const dariMatch = cleanText.match(/dari\s+([A-Za-z0-9\s.]+?)(?:\s+berhasil|\s+sebesar|\s+melalui|\s+ke|\s+pada|\s+ref|$|\.)/i)
   const fromMatch = cleanText.match(/from\s+([A-Za-z0-9\s.]+?)(?:\s+has|\s+for|\s+ref|\.|;|$)/i)
   const olehMatch = cleanText.match(/oleh\s+([A-Za-z0-9\s.]+?)(?:\s+berhasil|\s+sebesar|$|\.)/i)
 
-  if (dariMatch && dariMatch[1] && dariMatch[1].trim().length > 1) {
+  if (custMatch && custMatch[1] && custMatch[1].trim().length > 1) {
+    name = custMatch[1].trim()
+  } else if (dariMatch && dariMatch[1] && dariMatch[1].trim().length > 1) {
     name = dariMatch[1].trim()
   } else if (fromMatch && fromMatch[1] && fromMatch[1].trim().length > 1) {
     name = fromMatch[1].trim()
@@ -176,8 +181,17 @@ export function parseRawNotification(text: string): {
   }
 
   // Clean name from ref codes or junk
-  name = name.replace(/^ref:.*$/i, "").trim()
-  if (!name || name.length < 2) name = "Pelanggan QRIS"
+  name = name.replace(/^ref:.*$/i, "").replace(/ref:\s*\d+/i, "").trim()
+
+  // 4. If name is still empty, try extracting Ref code to make unique "Pelanggan #xxxx"
+  if (!name || name.length < 2) {
+    const refMatch = cleanText.match(/ref(?:\s*id|\s*no|erence)?\s*[:#.]?\s*([A-Za-z0-9]+)/i)
+    if (refMatch && refMatch[1] && refMatch[1].length >= 4) {
+      name = `Pelanggan #${refMatch[1].slice(-4)}`
+    } else {
+      name = "Pelanggan"
+    }
+  }
 
   return {
     name: name.slice(0, 30),
