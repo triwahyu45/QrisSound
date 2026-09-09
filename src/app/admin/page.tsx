@@ -55,7 +55,16 @@ export default function AdminPage() {
 
   useEffect(() => {
     setTxs(getTransactions())
-    setFbUrl(getFirebaseUrl())
+    const initialUrl = getFirebaseUrl()
+    setFbUrl(initialUrl)
+    if (initialUrl) {
+      testFirebaseConnection(initialUrl).then(res => {
+        if (res.success) {
+          setFbStatus("success")
+          setFbMessage(res.message)
+        }
+      })
+    }
 
     const handleUpdate = () => setTxs(getTransactions())
     window.addEventListener("dtx_add", handleUpdate)

@@ -100,10 +100,12 @@ export const EV_ADD_NAME = EV_ADD
 export const EV_CLEAR_NAME = EV_CLEAR
 
 const FIREBASE_KEY = "detronics_firebase_url"
+export const DEFAULT_FIREBASE_URL = "https://detronics-qris-default-rtdb.asia-southeast1.firebasedatabase.app"
 
 export function getFirebaseUrl(): string {
-  if (typeof window === "undefined") return ""
-  return localStorage.getItem(FIREBASE_KEY) || ""
+  if (typeof window === "undefined") return DEFAULT_FIREBASE_URL
+  const saved = localStorage.getItem(FIREBASE_KEY)
+  return saved !== null ? saved : DEFAULT_FIREBASE_URL
 }
 
 export function setFirebaseUrl(url: string): void {
