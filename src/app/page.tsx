@@ -1,11 +1,11 @@
 "use client"
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useState } from "react"
-import { Crown, Zap, Wifi, Users, TrendingUp, Clock, CreditCard, CheckCircle2, Cloud, CloudOff, Volume2, VolumeX } from "lucide-react"
+import { useEffect, useState, useCallback, useRef } from "react"
+import { Crown, Zap, Wifi, Users, TrendingUp, Clock, CreditCard, CheckCircle2, Cloud, CloudOff, Volume2, VolumeX, Sparkles } from "lucide-react"
 import { useTransactions } from "@/hooks/useTransactions"
 import { formatRp, timeAgo, LeaderEntry, Transaction } from "@/lib/store"
-import { playChime, announcePayment } from "@/lib/audio"
+import { playChime, announcePayment, unlockAudio, isAudioUnlocked } from "@/lib/audio"
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ""
 
@@ -151,7 +151,34 @@ export default function MainDisplay() {
   const { txs, leaderboard, latest, showAlert, dismissAlert, isCloudConnected } = useTransactions()
   const [time, setTime] = useState("")
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const [audioUnlockedState, setAudioUnlockedState] = useState(false)
+  const lastAnnouncedId = useRef<string | null>(null)
   const totalAmount = txs.reduce((s, t) => s + t.amount, 0)
+
+  // Trigger audio unlock on any user gesture
+  const triggerUnlock = useCallback(async () => {
+    const ok = await unlockAudio()
+    setAudioUnlockedState(true)
+    return ok
+  }, [])
+
+  useEffect(() => {
+    if (isAudioUnlocked()) {
+      setAudioUnlockedState(true)
+    }
+
+    const handleGesture = () => {
+      triggerUnlock()
+    }
+    window.addEventListener("click", handleGesture)
+    window.addEventListener("touchstart", handleGesture)
+    window.addEventListener("keydown", handleGesture)
+    return () => {
+      window.removeEventListener("click", handleGesture)
+      window.removeEventListener("touchstart", handleGesture)
+      window.removeEventListener("keydown", handleGesture)
+    }
+  }, [triggerUnlock])
 
   useEffect(() => {
     const update = () => setTime(new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }))
@@ -163,10 +190,14 @@ export default function MainDisplay() {
   // Play sound when new transaction arrives
   useEffect(() => {
     if (showAlert && latest && soundEnabled) {
-      playChime()
-      announcePayment(latest.name, latest.amount, latest.message, latest.paymentMethod)
+      if (lastAnnouncedId.current !== latest.id) {
+        lastAnnouncedId.current = latest.id
+        triggerUnlock().then(() => {
+          announcePayment(latest.name, latest.amount, latest.message, latest.paymentMethod)
+        })
+      }
     }
-  }, [showAlert, latest, soundEnabled])
+  }, [showAlert, latest, soundEnabled, triggerUnlock])
 
   return (
     <div className="min-h-screen grid-bg flex flex-col p-4 gap-4">
@@ -198,19 +229,38 @@ export default function MainDisplay() {
             </Link>
           )}
 
-          {/* Sound Toggle */}
+          {/* Tes Suara Button */}
           <button
-            onClick={() => {
-              const next = !soundEnabled
-              setSoundEnabled(next)
-              if (next) playChime(0.5)
+            onClick={async (e) => {
+              e.stopPropagation()
+              await triggerUnlock()
+              announcePayment(
+                latest?.name || "Pelanggan QRIS",
+                latest?.amount || 10000,
+                latest?.message || "Tes Suara QRIS Soundbox",
+                latest?.paymentMethod || "ShopeePay",
+                1
+              )
             }}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-medium transition-all"
-            style={soundEnabled ? { borderColor: "rgba(0,255,213,0.4)", color: "var(--neon-cyan)", background: "rgba(0,255,213,0.08)" } : { borderColor: "rgba(255,255,255,0.1)", color: "#94a3b8" }}
-            title="Klik untuk tes / matikan suara"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-xs font-semibold transition-all active:scale-95 shadow-sm"
+            title="Klik untuk tes suara chime dan pembicara TTS sekarang"
+          >
+            <Volume2 size={13} />
+            <span>Tes Suara</span>
+          </button>
+
+          {/* Sound Toggle ON / Mute */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setSoundEnabled(prev => !prev)
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all"
+            style={soundEnabled ? { borderColor: "rgba(0,255,213,0.3)", color: "var(--neon-cyan)", background: "rgba(0,255,213,0.06)" } : { borderColor: "rgba(255,255,255,0.1)", color: "#94a3b8" }}
+            title={soundEnabled ? "Suara Aktif" : "Suara Dimatikan"}
           >
             {soundEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
-            <span>{soundEnabled ? "Suara ON" : "Mute"}</span>
+            <span>{soundEnabled ? "ON" : "Mute"}</span>
           </button>
 
           <div className="text-right pl-2 border-l border-white/10">
@@ -227,6 +277,24 @@ export default function MainDisplay() {
           </Link>
         </div>
       </header>
+
+      {/* Audio Unlock Notice Bar */}
+      {!audioUnlockedState && (
+        <div
+          onClick={triggerUnlock}
+          className="glass rounded-xl px-4 py-2.5 flex items-center justify-between border border-amber-500/40 bg-amber-500/10 text-amber-300 text-xs font-medium cursor-pointer animate-pulse hover:bg-amber-500/20 transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <Volume2 size={16} className="text-amber-400 shrink-0" />
+            <span>
+              <strong>Audio Browser Belum Aktif:</strong> Klik di sini (atau klik di mana saja pada layar) agar browser mengizinkan pemutaran suara chime & pembacaan notifikasi soundbox otomatis.
+            </span>
+          </div>
+          <span className="shrink-0 ml-3 px-3 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs shadow-md hover:bg-amber-400 transition-colors">
+            Aktifkan Suara Sekarang
+          </span>
+        </div>
+      )}
 
       {/* Main content — QR kiri, info kanan */}
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">

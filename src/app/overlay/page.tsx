@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react"
 import { useTransactions } from "@/hooks/useTransactions"
 import { formatRp, timeAgo, LeaderEntry } from "@/lib/store"
-import { playChime, announcePayment } from "@/lib/audio"
+import { announcePayment, unlockAudio } from "@/lib/audio"
 
 const RANK_LABEL = ["👑", "🥈", "🥉"]
 
@@ -31,9 +31,20 @@ export default function OverlayPage() {
   const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
+    const handleGesture = () => unlockAudio()
+    window.addEventListener("click", handleGesture)
+    window.addEventListener("touchstart", handleGesture)
+    return () => {
+      window.removeEventListener("click", handleGesture)
+      window.removeEventListener("touchstart", handleGesture)
+    }
+  }, [])
+
+  useEffect(() => {
     if (showAlert && latest && !muted) {
-      playChime()
-      announcePayment(latest.name, latest.amount, latest.message, latest.paymentMethod)
+      unlockAudio().then(() => {
+        announcePayment(latest.name, latest.amount, latest.message, latest.paymentMethod)
+      })
     }
   }, [showAlert, latest, muted])
 
